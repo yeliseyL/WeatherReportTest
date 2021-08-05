@@ -11,7 +11,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Toast
-import androidx.core.app.ActivityCompat
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.navigation.fragment.findNavController
@@ -36,12 +36,6 @@ class MainFragment : Fragment(R.layout.main_fragment) {
         override fun onStatusChanged(provider: String, status: Int, extras: Bundle) {}
         override fun onProviderEnabled(provider: String) {}
         override fun onProviderDisabled(provider: String) {}
-    }
-
-    companion object {
-        private const val REQUEST_FOREGROUND_AND_BACKGROUND_PERMISSION_RESULT_CODE = 33
-        private const val LOCATION_PERMISSION_INDEX = 0
-        private const val BACKGROUND_LOCATION_PERMISSION_INDEX = 1
     }
 
     override fun onCreateView(
@@ -72,33 +66,16 @@ class MainFragment : Fragment(R.layout.main_fragment) {
             when (it) {
                 WeatherApiStatus.LOADING -> binding.progress.visibility = View.VISIBLE
                 WeatherApiStatus.DONE -> binding.progress.visibility = View.GONE
-                WeatherApiStatus.ERROR -> {
-                    View.GONE;
+                WeatherApiStatus.ERROR ->
                     Toast.makeText(context, getString(R.string.no_connection), Toast.LENGTH_LONG).show()
-                }
             }
         })
 
         binding.fab.setOnClickListener {
             findNavController().navigate(R.id.searchDialogFragment)
-            getLocation()
         }
 
         return binding.root
-    }
-
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>,
-                                            grantResults: IntArray) {
-        if (
-                grantResults.isEmpty() ||
-                grantResults[LOCATION_PERMISSION_INDEX] == PackageManager.PERMISSION_DENIED ||
-                (requestCode == REQUEST_FOREGROUND_AND_BACKGROUND_PERMISSION_RESULT_CODE &&
-                        grantResults[BACKGROUND_LOCATION_PERMISSION_INDEX] ==
-                        PackageManager.PERMISSION_DENIED)) {
-            Toast.makeText(context, getString(R.string.security_exception), Toast.LENGTH_LONG).show()
-        } else {
-            getLocation()
-        }
     }
 
     private fun getLocation() {
@@ -109,17 +86,21 @@ class MainFragment : Fragment(R.layout.main_fragment) {
                     0f,
                     locationListener)
         } catch (ex: SecurityException) {
-            if (ContextCompat.checkSelfPermission(requireActivity(),
-                            Manifest.permission.ACCESS_FINE_LOCATION) !==
-                    PackageManager.PERMISSION_GRANTED) {
-                if (ActivityCompat.shouldShowRequestPermissionRationale(requireActivity(),
-                                Manifest.permission.ACCESS_FINE_LOCATION)) {
-                    ActivityCompat.requestPermissions(requireActivity(),
-                            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1)
-                } else {
-                    ActivityCompat.requestPermissions(requireActivity(),
-                            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 1)
-                }
+            val permission = ContextCompat.checkSelfPermission(
+                    requireContext(), Manifest.permission.ACCESS_FINE_LOCATION)
+
+            if (permission != PackageManager.PERMISSION_GRANTED) {
+                permissionsResultCallback.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            }
+        }
+    }
+
+    private val permissionsResultCallback = registerForActivityResult(
+            ActivityResultContracts.RequestPermission()){
+        when (it) {
+            true -> { getLocation() }
+            false -> {
+                Toast.makeText(requireContext(), "Permission denied", Toast.LENGTH_SHORT).show()
             }
         }
     }

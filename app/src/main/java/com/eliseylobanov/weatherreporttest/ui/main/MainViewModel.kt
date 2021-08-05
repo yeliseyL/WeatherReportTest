@@ -49,8 +49,8 @@ class MainViewModel(private val repository: CitiesRepository) : ViewModel() {
                 repository.searchCity(name)
                 _status.value = WeatherApiStatus.DONE
             } catch (ex: Exception) {
-                Log.e("Repository", Resources.getSystem().getString(R.string.no_network))
                 _status.value = WeatherApiStatus.ERROR
+                Log.e("Repository", "Wrong city name")
             }
         }
     }
